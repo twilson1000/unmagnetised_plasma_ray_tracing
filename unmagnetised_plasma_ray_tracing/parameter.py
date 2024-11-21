@@ -12,9 +12,9 @@ import weakref
 logger = logging.getLogger(__name__)
 
 class Parameter:
-    __slots__ = ("name", "description", "unit", "shape", "complex")
+    __slots__ = ("name", "description", "unit", "shape", "complex", "ndim")
 
-    def __init__(self, name: str, description: str, unit: str,
+    def __init__(self, name: str, description: str, unit: str, ndim: int,
         complex: bool=False):
         '''
         name : str
@@ -32,6 +32,7 @@ class Parameter:
         self.name = str(name)
         self.description = str(description)
         self.unit = str(unit)
+        self.ndim = int(ndim)
         self.complex = complex
 
     def __str__(self):
@@ -62,10 +63,30 @@ class Parameter:
         else:
             return float
 
+    @classmethod
+    def scalar(cls, name: str, description: str, unit: str, complex: bool=False):
+        return cls(name, description, unit, 0, complex=complex)
+    
+    @classmethod
+    def vector(cls, name: str, description: str, unit: str, complex: bool=False):
+        return cls(name, description, unit, 1, complex=complex)
+    
+    covector = vector
+
+    @classmethod
+    def rank_02_tensor(cls, name: str, description: str, unit: str, complex: bool=False):
+        return cls(name, description, unit, 2, complex=complex)
+    
+    rank_11_tensor = rank_02_tensor
+
+    @classmethod
+    def rank_12_tensor(cls, name: str, description: str, unit: str, complex: bool=False):
+        return cls(name, description, unit, 3, complex=complex)
+
 class ParameterCache:
     ''' Parameter cache which caches values. If the value is missing,
     a user provided function is called to get the value. '''
-    __slots__ = ("__weakref__", "parameter", "cached", "value",
+    __slots__ = ("__weakref__", "parameter", "cached", "shape", "value",
         "cache_miss_callback")
 
     def __init__(self, parameter: Parameter, dimension: int):
@@ -73,8 +94,8 @@ class ParameterCache:
         self.cache_miss_callback = None
         
         self.cached = False
-        self.value = np.zeros(self.parameter.value_shape(dimension),
-            dtype=self.parameter.dtype)
+        self.shape = self.parameter.value_shape(dimension)
+        self.value = np.zeros(self.shape, dtype=self.parameter.dtype)
 
     def set(self, value):
         ''' Set value for given coordinate set. '''
