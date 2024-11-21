@@ -7,8 +7,8 @@ import pytest
 import scipy.constants as const
 
 # Local imports
-from unmagnetised_plasma_ray_tracer.hamiltonian_model import UnmagnetisedPlasmaHamiltonian
-from unmagnetised_plasma_ray_tracer.plasma_model import C2Ramp
+from unmagnetised_plasma_ray_tracing.density_model import C2Ramp
+from unmagnetised_plasma_ray_tracing.hamiltonian_model import UnmagnetisedPlasmaHamiltonian
 
 logger = logging.getLogger(__name__)
 
