@@ -6,6 +6,7 @@ import logging
 import numpy as np
 
 # Local imports
+from unmagnetised_plasma_ray_tracing.parameter import Parameter, ParameterCache
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,47 @@ class DensityModel(abc.ABC):
         Return second derivative of electron density with respect to position
         at given cartesian position [m^-3.m^-2].
         '''
+
+class DensityModelCache:
+    __slots__ = ("model", "density", "density_first_derivative",
+        "density_second_derivative")
+
+    _density = Parameter("electron_density", "Electron density", "m^-3")
+    _density_first_derivative = Parameter("electron_density_first_derivative",
+        "First derivative of electron density with respect to space", "m^-3.m^-1")
+    _density_second_derivative = Parameter("electron_density_second_derivative",
+        "Second derivative of electron density with respect to space", "m^-3.m^-2")
+
+    def __init__(self, model: DensityModel, position: ParameterCache,
+        dimension: int):
+        '''
+        
+        '''
+        self.model = model
+
+        self.density = ParameterCache(self._density, dimension)
+        self.density.register_cache_miss_callback(
+            self.get_density, bound_method=True)
+        self.density_first_derivative = ParameterCache(
+            self._density_first_derivative, dimension)
+        self._density_first_derivative.register_cache_miss_callback(
+            self.get__density_first_derivative, bound_method=True)
+        self.density_second_derivative = ParameterCache(
+            self._density_second_derivative, dimension)
+        self.density_second_derivative.register_cache_miss_callback(
+            self.get_density_second_derivative, bound_method=True)
+
+    def get_density(self):
+        position = self.position.get()
+        return self.model.density(position)
+    
+    def get_density_first_derivative(self):
+        position = self.position.get()
+        return self.model.density_first_derivative(position)
+    
+    def get_density_second_derivative(self):
+        position = self.position.get()
+        return self.model.density_second_derivative(position)
 
 class C2Ramp(DensityModel):
     '''
