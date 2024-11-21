@@ -7,13 +7,12 @@ import numpy as np
 import scipy.constants as const
 
 # Local imports
-from .density_model import DensityModel
 from .parameter import Parameter, ParameterCache
 
 logger = logging.getLogger(__name__)
 
 class WaveModel:
-    __slots__ = ("density_model", "position", "wavevector",
+    __slots__ = ("__weakref__", "dimension", "position", "wavevector",
         "refractive_index", "frequency", "time", "vacuum_wavenumber",
         "vacuum_wavelength", )
 
@@ -31,11 +30,11 @@ class WaveModel:
     _vacuum_wavelength = Parameter.scalar("vacuum_wavelength",
         "Vacuum wavelength", "m")
 
-    def __init__(self, density_model: DensityModel, dimension: int) -> None:
+    def __init__(self, dimension: int) -> None:
         '''
         
         '''
-        self.density_model = density_model
+        self.dimension = dimension
 
         self.position = ParameterCache(self._position, dimension)
         self.wavevector = ParameterCache(self._position, dimension)
@@ -43,15 +42,13 @@ class WaveModel:
         self.frequency = ParameterCache(self._position, dimension)
         self.time = ParameterCache(self._position, dimension)
 
-        self.vacuum_wavenumber = ParameterCache(self._vacuum_wavenumber,
-            dimension)
-        self.vacuum_wavenumber.register_cache_miss_callback(
-            self.set_vacuum_wavenumber, bound_method=True)
+        self.vacuum_wavenumber = ParameterCache.with_callback(
+            self._vacuum_wavenumber, dimension, self.set_vacuum_wavenumber,
+            bound_method=True)
         
-        self.vacuum_wavelength = ParameterCache(self._vacuum_wavelength,
-            dimension)
-        self.vacuum_wavelength.register_cache_miss_callback(
-            self.set_vacuum_wavelength, bound_method=True)
+        self.vacuum_wavelength = ParameterCache.with_callback(
+            self._vacuum_wavelength, dimension, self.set_vacuum_wavelength,
+            bound_method=True)
     
     def set_phase_space_position(self, position_m, refractive_index,
         frequency_ghz, time_ns):
