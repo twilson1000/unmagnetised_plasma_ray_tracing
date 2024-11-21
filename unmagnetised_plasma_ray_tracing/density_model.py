@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class DensityDataModel(abc.ABC):
     ''' Model providing electron density data in Cartesian coordinates. '''
-    __slots__ = ()
+    __slots__ = ("__weakref__",)
 
     @abc.abstractmethod
     def density(self, position_cartesian):
@@ -36,7 +36,7 @@ class DensityDataModel(abc.ABC):
         '''
 
 class DensityModel:
-    __slots__ = ("model", "position", "density", "frequency",
+    __slots__ = ("__weakref__", "model", "position", "density", "frequency",
         "density_first_derivative", "density_second_derivative",
         "critical_density", "normalised_density",
         "normalised_density_first_derivative",
@@ -67,60 +67,56 @@ class DensityModel:
         self.position = position
         self.frequency = frequency
 
-        self.density = ParameterCache(self._density, dimension)
-        self.density.register_cache_miss_callback(
-            self.get_density, bound_method=True)
+        self.density = ParameterCache.with_callback(self._density, dimension,
+            self.set_density, bound_method=True)
         
-        self.density_first_derivative = ParameterCache(
-            self._density_first_derivative, dimension)
-        self._density_first_derivative.register_cache_miss_callback(
-            self.get_density_first_derivative, bound_method=True)
+        self.density_first_derivative = ParameterCache.with_callback(
+            self._density_first_derivative, dimension,
+            self.set_density_first_derivative, bound_method=True)
         
-        self.density_second_derivative = ParameterCache(
-            self._density_second_derivative, dimension)
-        self.density_second_derivative.register_cache_miss_callback(
-            self.get_density_second_derivative, bound_method=True)
+        self.density_second_derivative = ParameterCache.with_callback(
+            self._density_second_derivative, dimension,
+            self.set_density_second_derivative, bound_method=True)
     
-        self.critical_density = ParameterCache(self._critical_density,
-            dimension)
-        self.critical_density.register_cache_miss_callback(
-            self.set_critical_density, bound_method=True)
+        self.critical_density = ParameterCache.with_callback(
+            self._critical_density, dimension, self.set_critical_density,
+            bound_method=True)
         
-        self.normalised_density = ParameterCache(self._normalised_density,
-            dimension)
-        self.normalised_density.register_cache_miss_callback(
-            self.set_normalised_density, bound_method=True)
+        self.normalised_density = ParameterCache.with_callback(
+            self._normalised_density, dimension, self.set_normalised_density,
+            bound_method=True)
         
-        self._normalised_density_first_derivative = ParameterCache(
-            self._normalised_density_first_derivative, dimension)
-        self._normalised_density_first_derivative.register_cache_miss_callback(
+        self.normalised_density_first_derivative = ParameterCache.with_callback(
+            self._normalised_density_first_derivative, dimension,
             self.set_normalised_density_first_derivative, bound_method=True)
         
-        self._normalised_density_second_derivative = ParameterCache(
-            self._normalised_density_second_derivative, dimension)
-        self._normalised_density_second_derivative.register_cache_miss_callback(
+        self.normalised_density_second_derivative = ParameterCache.with_callback(
+            self._normalised_density_second_derivative, dimension,
             self.set_normalised_density_second_derivative, bound_method=True)
 
-    def get_density(self):
+    def set_density(self):
         '''
         
         '''
         position = self.position.get()
-        return self.model.density(position)
+        density = self.model.density(position)
+        self.density.set(density)
     
-    def get_density_first_derivative(self):
+    def set_density_first_derivative(self):
         '''
         
         '''
         position = self.position.get()
-        return self.model.density_first_derivative(position)
+        density_first_derivative = self.model.density_first_derivative(position)
+        self.density_first_derivative.set(density_first_derivative)
     
-    def get_density_second_derivative(self):
+    def set_density_second_derivative(self):
         '''
         
         '''
         position = self.position.get()
-        return self.model.density_second_derivative(position)
+        density_second_derivative = self.model.density_second_derivative(position)
+        self.density_second_derivative.set(density_second_derivative)
 
     def set_critical_density(self):
         '''
@@ -163,7 +159,7 @@ class DensityModel:
         self.normalised_density_second_derivative.set(
             normalised_density_second_derivative)
     
-class NormalisedDensityDataModel(DensityModel):
+class NormalisedDensityDataModel(DensityDataModel):
     __slots__ = ("critical_density",)
 
     def __init__(self, frequency_ghz: float):
