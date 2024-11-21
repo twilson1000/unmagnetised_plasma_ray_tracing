@@ -90,12 +90,28 @@ class ParameterCache:
         "cache_miss_callback")
 
     def __init__(self, parameter: Parameter, dimension: int):
+        assert isinstance(parameter, Parameter)
+
         self.parameter = parameter
         self.cache_miss_callback = None
         
         self.cached = False
         self.shape = self.parameter.value_shape(dimension)
         self.value = np.zeros(self.shape, dtype=self.parameter.dtype)
+
+    @classmethod
+    def with_callback(cls, parameter: Parameter, dimension: int, 
+        callback: Callable, bound_method: bool=True):
+        '''
+        Create ParameterCache and add cache miss callback.
+        '''
+        obj = cls(parameter, dimension)
+        obj.register_cache_miss_callback(callback, bound_method=bound_method)
+        return obj
+
+    @property
+    def dtype(self) -> type:
+        return self.parameter.dtype
 
     def set(self, value):
         ''' Set value for given coordinate set. '''
