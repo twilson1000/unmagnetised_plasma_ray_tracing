@@ -35,7 +35,7 @@ class DensityModel(abc.ABC):
         '''
 
 class DensityModelCache:
-    __slots__ = ("model", "density", "density_first_derivative",
+    __slots__ = ("model", "position", "density", "density_first_derivative",
         "density_second_derivative")
 
     _density = Parameter("electron_density", "Electron density", "m^-3")
@@ -50,14 +50,17 @@ class DensityModelCache:
         
         '''
         self.model = model
+        self.position = position
 
         self.density = ParameterCache(self._density, dimension)
         self.density.register_cache_miss_callback(
             self.get_density, bound_method=True)
+        
         self.density_first_derivative = ParameterCache(
             self._density_first_derivative, dimension)
         self._density_first_derivative.register_cache_miss_callback(
-            self.get__density_first_derivative, bound_method=True)
+            self.get_density_first_derivative, bound_method=True)
+        
         self.density_second_derivative = ParameterCache(
             self._density_second_derivative, dimension)
         self.density_second_derivative.register_cache_miss_callback(
