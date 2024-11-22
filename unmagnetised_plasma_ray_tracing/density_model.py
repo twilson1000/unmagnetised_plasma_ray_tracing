@@ -7,7 +7,8 @@ import numpy as np
 import numpy.typing as npt
 
 # Local imports
-from unmagnetised_plasma_ray_tracing.parameter import Parameter, ParameterCache
+from .model import ModelBase
+from .parameter import Parameter, ParameterCache
 
 logger = logging.getLogger(__name__)
 
@@ -35,37 +36,40 @@ class DensityDataModel(abc.ABC):
         at given cartesian position [m^-3.m^-2].
         '''
 
-class DensityModel:
-    __slots__ = ("__weakref__", "model", "position", "density", "frequency",
+class DensityModel(ModelBase):
+    __slots__ = ("__weakref__", "model", "position", "frequency", "density",
         "density_first_derivative", "density_second_derivative",
         "critical_density", "normalised_density",
         "normalised_density_first_derivative",
         "normalised_density_second_derivative")
+    
+    root = "plasma"
 
-    _density = Parameter.scalar("electron_density", "Electron density", "m^-3")
-    _density_first_derivative = Parameter.covector("electron_density_first_derivative",
-        "First derivative of electron density with respect to space", "m^-3.m^-1")
-    _density_second_derivative = Parameter.rank_02_tensor("electron_density_second_derivative",
-        "Second derivative of electron density with respect to space", "m^-3.m^-2")
+    _density = Parameter.scalar("electron_density", "Electron density",
+        "m^-3", root)
+    _density_first_derivative = Parameter.covector(
+        "electron_density_first_derivative", ("First derivative of electron"
+        " density with respect to space"), "m^-3.m^-1", root)
+    _density_second_derivative = Parameter.rank_02_tensor(
+        "electron_density_second_derivative", ("Second derivative of electron "
+        " density with respect to space"), "m^-3.m^-2", root)
     _critical_density = Parameter.scalar("critical_density", ("Critical "
-        "density where wave frequency equals electron plasma frequency"), "GHz")
+        "density where wave frequency equals electron plasma frequency"),
+        "GHz", root)
     _normalised_density = Parameter.scalar("normalised_density", 
-        "Density divided by critical density", "")
+        "Density divided by critical density", "", root)
     _normalised_density_first_derivative = Parameter.covector(
         "normalised_density_first_derivative",
-        "First derivative of normalised density", "m^-1")
+        "First derivative of normalised density", "m^-1", root)
     _normalised_density_second_derivative = Parameter.rank_02_tensor(
         "normalised_density_second_derivative",
-        "Second derivative of normalised density", "m^-2")
+        "Second derivative of normalised density", "m^-2", root)
 
-    def __init__(self, model: DensityDataModel, position: ParameterCache,
-        frequency: ParameterCache, dimension: int):
+    def __init__(self, model: DensityDataModel, dimension: int):
         '''
         
         '''
         self.model = model
-        self.position = position
-        self.frequency = frequency
 
         self.density = ParameterCache.with_callback(self._density, dimension,
             self.set_density, bound_method=True)
@@ -93,6 +97,13 @@ class DensityModel:
         self.normalised_density_second_derivative = ParameterCache.with_callback(
             self._normalised_density_second_derivative, dimension,
             self.set_normalised_density_second_derivative, bound_method=True)
+
+    def link(self, position: ParameterCache, frequency: ParameterCache):
+        '''
+        Link density model to external parameters.
+        '''
+        self.position = position
+        self.frequency = frequency
 
     def set_density(self):
         '''
@@ -229,7 +240,7 @@ class C2Ramp(NormalisedDensityDataModel):
         d2y_dx2[0, 0] = 60 * self.Ln_inverse**2 * self.dy * x * (1 - x) * (1 - 2*x)
         return d2y_dx2
 
-class QuadraticWell(NormalisedDensityDataModel):
+class QuadraticChannel(NormalisedDensityDataModel):
     '''
     Density is a quadratic well with the well bottom parallel to the y axis.
     '''
@@ -256,6 +267,37 @@ class QuadraticWell(NormalisedDensityDataModel):
         n = len(position)
         d2y_dx2 = np.zeros((n, n))
         d2y_dx2[0, 0] = 2
+        d2y_dx2[2, 2] = 2
+
+        return self.Ln_inverse**2 * d2y_dx2
+
+class QuadraticWell(NormalisedDensityDataModel):
+    '''
+    Density is a quadratic well centred at origin.
+    '''
+    __slots__ = ("origin", "Ln_inverse")
+
+    def __init__(self, frequency_ghz: float, origin: npt.NDArray[float],
+        Ln_inverse: float):
+        super().__init__(frequency_ghz)
+        self.origin = np.array(origin)
+        self.Ln_inverse = float(Ln_inverse)
+
+    def normalised_density(self, position):
+        dx = position - self.origin
+        return self.Ln_inverse**2 * sum(dx**2)
+
+    def normalised_density_first_derivative(self, position):
+        dy_dx = np.zeros_like(position)
+        dy_dx[:] = 2 * position
+
+        return self.Ln_inverse**2 * dy_dx
+
+    def normalised_density_second_derivative(self, position):
+        n = len(position)
+        d2y_dx2 = np.zeros((n, n))
+        d2y_dx2[0, 0] = 2
+        d2y_dx2[1, 1] = 2
         d2y_dx2[2, 2] = 2
 
         return self.Ln_inverse**2 * d2y_dx2
