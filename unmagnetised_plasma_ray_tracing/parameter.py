@@ -12,10 +12,11 @@ import weakref
 logger = logging.getLogger(__name__)
 
 class Parameter:
-    __slots__ = ("name", "description", "unit", "shape", "complex", "ndim")
+    __slots__ = ("name", "description", "unit", "root", "shape", "complex",
+        "ndim")
 
-    def __init__(self, name: str, description: str, unit: str, ndim: int,
-        complex: bool=False):
+    def __init__(self, name: str, description: str, unit: str, root: str,
+        ndim: int, complex: bool=False):
         '''
         name : str
             Name of the parameter.
@@ -23,6 +24,8 @@ class Parameter:
             Description of the parameter.
         unit : str
             Unit the parameter is measured in.
+        root : str
+            Name of a root group the parameter belongs to.
         shape : Tuple[int]
             Dimensions of the parameter e.g. scalars are (),
             vectors are (n,), matricies are (m, n), etc.
@@ -32,6 +35,7 @@ class Parameter:
         self.name = str(name)
         self.description = str(description)
         self.unit = str(unit)
+        self.root = str(root)
         self.ndim = int(ndim)
         self.complex = complex
 
@@ -59,29 +63,34 @@ class Parameter:
     @property
     def dtype(self) -> type:
         if self.complex:
-            return complex
+            return np.complex128
         else:
-            return float
+            return np.float64
 
     @classmethod
-    def scalar(cls, name: str, description: str, unit: str, complex: bool=False):
-        return cls(name, description, unit, 0, complex=complex)
+    def scalar(cls, name: str, description: str, unit: str, root: str,
+        complex: bool=False):
+        return cls(name, description, unit, root, 0, complex=complex)
     
     @classmethod
-    def vector(cls, name: str, description: str, unit: str, complex: bool=False):
-        return cls(name, description, unit, 1, complex=complex)
+    def vector(cls, name: str, description: str, unit: str, root: str,
+        complex: bool=False):
+        return cls(name, description, unit, root, 1, complex=complex)
     
     covector = vector
 
     @classmethod
-    def rank_02_tensor(cls, name: str, description: str, unit: str, complex: bool=False):
-        return cls(name, description, unit, 2, complex=complex)
+    def rank_02_tensor(cls, name: str, description: str, unit: str, root: str,
+        complex: bool=False):
+        return cls(name, description, unit, root, 2, complex=complex)
     
     rank_11_tensor = rank_02_tensor
+    rank_20_tensor = rank_02_tensor
 
     @classmethod
-    def rank_12_tensor(cls, name: str, description: str, unit: str, complex: bool=False):
-        return cls(name, description, unit, 3, complex=complex)
+    def rank_12_tensor(cls, name: str, description: str, unit: str, root: str,
+        complex: bool=False):
+        return cls(name, description, unit, root, 3, complex=complex)
 
 class ParameterCache:
     ''' Parameter cache which caches values. If the value is missing,
@@ -113,9 +122,14 @@ class ParameterCache:
     def dtype(self) -> type:
         return self.parameter.dtype
 
+    @property
+    def root(self) -> str:
+        return self.parameter.root
+
     def set(self, value):
         ''' Set value for given coordinate set. '''
-        self.value = np.array(value, dtype=self.parameter.dtype)
+        self.value = (np.array(value, dtype=self.parameter.dtype)
+            .reshape(self.shape))
         self.cached = True
 
     def get(self):
@@ -144,7 +158,7 @@ class ParameterCache:
         self.cached = False
 
     def register_cache_miss_callback(self, callback: Callable[[], npt.NDArray],
-        bound_method: bool=True):
+        bound_method: bool=True, override: bool=False, use_weakref: bool=True):
         '''
         Register a callback function which will return a requested value
         which isn't in the cache.
@@ -154,12 +168,15 @@ class ParameterCache:
         coordinate_set : CoordinateSet
             The coordinate set the callback is valid for.
         '''
-        assert self.cache_miss_callback is None, \
+        assert ~(~override and self.cache_miss_callback is None), \
             f"Cache miss callback already registered for {self.parameter.name}"
         
         # Use a weak reference to avoid reference cycles.
-        if bound_method:
-            self.cache_miss_callback = weakref.WeakMethod(callback)
+        if use_weakref:
+            if bound_method:
+                self.cache_miss_callback = weakref.WeakMethod(callback)
+            else:
+                self.cache_miss_callback = weakref.proxy(callback)
         else:
-            self.cache_miss_callback = weakref.proxy(callback)
+            self.cache_miss_callback = callback
      
