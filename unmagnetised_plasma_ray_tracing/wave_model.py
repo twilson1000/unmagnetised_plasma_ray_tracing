@@ -7,28 +7,31 @@ import numpy as np
 import scipy.constants as const
 
 # Local imports
+from .model import ModelBase
 from .parameter import Parameter, ParameterCache
 
 logger = logging.getLogger(__name__)
 
-class WaveModel:
+class WaveModel(ModelBase):
     __slots__ = ("__weakref__", "dimension", "position", "wavevector",
         "refractive_index", "frequency", "time", "vacuum_wavenumber",
         "vacuum_wavelength", )
+    
+    root = "wave"
 
-    _position = Parameter.scalar("position", "Position in space", "m")
-    _wavevector = Parameter.covector("wavevector", "Wave vector", "m^-1")
+    _position = Parameter.vector("position", "Position in space", "m", root)
+    _wavevector = Parameter.covector("wavevector", "Wave vector", "m^-1", root)
     _refractive_index = Parameter.covector("refractive_index",
-        "Refractive index covector", "")
+        "Refractive index covector", "", root)
     _refractive_index_magnitude = Parameter.scalar("refractive_index_magnitude",
-        "Mangitude of refractive index covector", "")
-    _frequency = Parameter.scalar("frequency", "Wave frequency", "GHz")
-    _time = Parameter.scalar("time", "Time", "ns")
+        "Mangitude of refractive index covector", "", root)
+    _frequency = Parameter.scalar("frequency", "Wave frequency", "GHz", root)
+    _time = Parameter.scalar("time", "Time", "ns", root)
 
     _vacuum_wavenumber = Parameter.scalar("vacuum_wavenumber",
-        "Vacuum wavenumber k0", "m^-1")
+        "Vacuum wavenumber k0", "m^-1", root)
     _vacuum_wavelength = Parameter.scalar("vacuum_wavelength",
-        "Vacuum wavelength", "m")
+        "Vacuum wavelength", "m", root)
 
     def __init__(self, dimension: int) -> None:
         '''
@@ -37,10 +40,10 @@ class WaveModel:
         self.dimension = dimension
 
         self.position = ParameterCache(self._position, dimension)
-        self.wavevector = ParameterCache(self._position, dimension)
+        self.wavevector = ParameterCache(self._wavevector, dimension)
         self.refractive_index = ParameterCache(self._refractive_index, dimension)
-        self.frequency = ParameterCache(self._position, dimension)
-        self.time = ParameterCache(self._position, dimension)
+        self.frequency = ParameterCache(self._frequency, dimension)
+        self.time = ParameterCache(self._time, dimension)
 
         self.vacuum_wavenumber = ParameterCache.with_callback(
             self._vacuum_wavenumber, dimension, self.set_vacuum_wavenumber,
