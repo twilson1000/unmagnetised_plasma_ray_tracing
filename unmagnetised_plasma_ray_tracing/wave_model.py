@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 class WaveModel(ModelBase):
     __slots__ = ("__weakref__", "dimension", "position", "wavevector",
         "refractive_index", "frequency", "time", "vacuum_wavenumber",
-        "vacuum_wavelength", )
+        "vacuum_wavelength", "phase", "power", "electric_field_polarisation",
+        "wave_action", "electric_field_strength")
     
     root = "wave"
 
@@ -32,6 +33,16 @@ class WaveModel(ModelBase):
         "Vacuum wavenumber k0", "m^-1", root)
     _vacuum_wavelength = Parameter.scalar("vacuum_wavelength",
         "Vacuum wavelength", "m", root)
+    
+    _phase = Parameter.scalar("phase", "Wave phase (relative)", "radians",
+        root)
+    _power = Parameter.scalar("power", "Wave power", "W", root)
+    _electric_field_polarisation = Parameter.vector(
+        "electric_field_polarisation", "Wave electric field polarisation", "",
+        root)
+    _wave_action = Parameter.scalar("wave_action", "Wave action", "", root)
+    _electric_field_strength = Parameter.scalar("electric_field_strength",
+        "Wave electric field strength", "V/m", root)
 
     def __init__(self, dimension: int) -> None:
         '''
@@ -48,10 +59,17 @@ class WaveModel(ModelBase):
         self.vacuum_wavenumber = ParameterCache.with_callback(
             self._vacuum_wavenumber, dimension, self.set_vacuum_wavenumber,
             bound_method=True)
-        
         self.vacuum_wavelength = ParameterCache.with_callback(
             self._vacuum_wavelength, dimension, self.set_vacuum_wavelength,
             bound_method=True)
+        
+        self.phase = ParameterCache(self._phase, dimension)
+        self.power = ParameterCache(self._power, dimension)
+        self.electric_field_polarisation = ParameterCache(
+            self._electric_field_polarisation, dimension)
+        # self.wave_action = ParameterCache(self._wave_action, dimension)
+        self.electric_field_strength = ParameterCache(
+            self._electric_field_strength, dimension)
     
     def set_phase_space_position(self, position_m, refractive_index,
         frequency_ghz, time_ns):
