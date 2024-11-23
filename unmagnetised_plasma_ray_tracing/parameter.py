@@ -45,9 +45,6 @@ class Parameter:
     
     def __repr__(self):
         return f"Parameter.{self.name}"
-
-    def __hash__(self):
-        return hash(str(self))
     
     def value_shape(self, dimension: int) -> Tuple[int]:
         '''
