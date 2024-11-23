@@ -16,7 +16,14 @@ from .wave_model import WaveModel
 logger = logging.getLogger(__name__)
 
 class HamiltonianBase(abc.ABC, ModelBase):
-    __slots__ = ("hamiltonian", "dispersion_tensor", "normalised_ray_velocity",
+    __slots__ = ("hamiltonian", "dispersion_tensor",
+        "hamiltonian_first_derivative_x", "hamiltonian_first_derivative_N",
+        "hamiltonian_normalised_first_derivative_f",
+        "hamiltonian_first_derivative_z", "hamiltonian_second_derivative_x",
+        "hamiltonian_second_derivative_xN",
+        "hamiltonian_normalised_second_derivative_xf",
+        "hamiltonian_normalised_second_derivative_Nf",
+        "hamiltonian_second_derivative_z", "normalised_ray_velocity",
         "normalised_ray_acceleration")
     
     root = "hamiltonian"
@@ -25,12 +32,51 @@ class HamiltonianBase(abc.ABC, ModelBase):
         "", root, complex=True)
     _dispersion_tensor = Parameter.rank_11_tensor("dispersion_tensor",
         "Dispersion tensor for electromagnetic wave", "", root, complex=True)
+    
+    _hamiltonian_first_derivative_x = Parameter.covector(
+        "hamiltonian_first_derivative_x", ("First derivative of real "
+        "part of hamiltonian with respect to space."), "m^-1", root)
+    _hamiltonian_first_derivative_N = Parameter.covector(
+        "hamiltonian_first_derivative_N", ("First derivative of real "
+        "part of hamiltonian with respect to refractive index."), "m", root)
+    _hamiltonian_normalised_first_derivative_f = Parameter.scalar(
+        "hamiltonian_first_derivative_f", ("First derivative of real "
+        "part of hamiltonian with respect to frequency."), "ns", root)
+    _hamiltonian_first_derivative_z = Parameter(
+        "hamiltonian_first_derivative_z", ("First derivative of real "
+        "part of hamiltonian with respect to phase space position (x, N).")
+        , "m", root, 1)
+
+    _hamiltonian_second_derivative_x = Parameter.rank_02_tensor(
+        "hamiltonian_second_derivative_x", ("Second derivative of real "
+        "part of hamiltonian with respect to space."), "m^-2", root)
+    _hamiltonian_second_derivative_N = Parameter.rank_20_tensor(
+        "hamiltonian_second_derivative_N", ("Second derivative of real "
+        "part of hamiltonian with respect to refractive index."), "m^2", root)
+    _hamiltonian_second_derivative_xN = Parameter.rank_11_tensor(
+        "hamiltonian_second_derivative_xN", ("Second mixed derivative of real "
+        "part of hamiltonian with respect to position and refractive index."),
+        "", root)
+    _hamiltonian_normalised_second_derivative_xf = Parameter.covector(
+        "hamiltonian_normalised_second_derivative_xf", ("Second mixed "
+        "derivative of hamiltonian with respect to position and frequency."),
+        "ns.m^-1", root)
+    _hamiltonian_normalised_second_derivative_Nf = Parameter.vector(
+        "hamiltonian_normalised_second_derivative_Nf", ("Second mixed "
+        "derivative of hamiltonian with respect to refractive index and "
+        "frequency."), "ns.m", root)
+    _hamiltonian_second_derivative_z = Parameter(
+        "hamiltonian_second_derivative_z", ("Second derivative of real "
+        "part of hamiltonian with respect to phase space position (x, N).")
+        , "m", root, 2)
+    
     _normalised_ray_velocity = Parameter.vector("normalised_ray_velocity",
         ("First derivative of ray position in phase space (x, N) with respect "
         "to time normalised to the speed of light."), "", root)
     _normalised_ray_acceleration = Parameter.vector("normalised_ray_velocity",
         ("Second derivative of ray position in phase space (x, N) with respect "
         "to time normalised to the speed of light squared."), "", root)
+    
 
     def __init__(self, dimension: int) -> None:
         self.hamiltonian = ParameterCache.with_callback(self._hamiltonian,
@@ -39,6 +85,49 @@ class HamiltonianBase(abc.ABC, ModelBase):
         self.dispersion_tensor = ParameterCache.with_callback(
             self._dispersion_tensor, dimension, self.set_dispersion_tensor,
             bound_method=True)
+        
+        self.hamiltonian_first_derivative_x = ParameterCache.with_callback(
+            self._hamiltonian_first_derivative_x, dimension,
+            self.set_hamiltonian_first_derivative_x, bound_method=True)
+        
+        self.hamiltonian_first_derivative_N = ParameterCache.with_callback(
+            self._hamiltonian_first_derivative_N, dimension,
+            self.set_hamiltonian_first_derivative_N, bound_method=True)
+
+        self.hamiltonian_normalised_first_derivative_f = ParameterCache.with_callback(
+            self._hamiltonian_normalised_first_derivative_f, dimension,
+            self.set_hamiltonian_normalised_first_derivative_f,
+            bound_method=True)
+        
+        self.hamiltonian_first_derivative_z = ParameterCache.with_callback(
+            self._hamiltonian_first_derivative_z, 2 * dimension,
+            self.set_hamiltonian_first_derivative_z, bound_method=True)
+        
+        self.hamiltonian_normalised_second_derivative_xf = ParameterCache.with_callback(
+            self._hamiltonian_normalised_second_derivative_xf, dimension,
+            self.set_hamiltonian_normalised_second_derivative_xf,
+            bound_method=True)
+        
+        self.hamiltonian_normalised_second_derivative_Nf = ParameterCache.with_callback(
+            self._hamiltonian_normalised_second_derivative_Nf, dimension,
+            self.set_hamiltonian_normalised_second_derivative_Nf,
+            bound_method=True)
+
+        self.hamiltonian_second_derivative_x = ParameterCache.with_callback(
+            self._hamiltonian_second_derivative_x, dimension,
+            self.set_hamiltonian_second_derivative_x, bound_method=True)
+
+        self.hamiltonian_second_derivative_N = ParameterCache.with_callback(
+            self._hamiltonian_second_derivative_N, dimension,
+            self.set_hamiltonian_second_derivative_N, bound_method=True)
+
+        self.hamiltonian_second_derivative_xN = ParameterCache.with_callback(
+            self._hamiltonian_second_derivative_xN, dimension,
+            self.set_hamiltonian_second_derivative_xN, bound_method=True)
+        
+        self.hamiltonian_second_derivative_z = ParameterCache.with_callback(
+            self._hamiltonian_second_derivative_z, 2 * dimension,
+            self.set_hamiltonian_second_derivative_z, bound_method=True)
         
         self.normalised_ray_velocity = ParameterCache.with_callback(
             self._normalised_ray_velocity, 2 * dimension,
@@ -59,8 +148,98 @@ class HamiltonianBase(abc.ABC, ModelBase):
         '''
         Set dispersion tensor for electromagnetic wave.
         '''
+    
+    
+    @abc.abstractmethod
+    def set_hamiltonian_first_derivative_x(self):
+        '''
+        Set first derivative of real part of Hamiltonian with respect to
+        position.
+        '''
+    
+    @abc.abstractmethod
+    def set_hamiltonian_first_derivative_N(self):
+        '''
+        Set first derivative of real part of Hamiltonian with respect to
+        refractive index.
+        '''
+    
+    @abc.abstractmethod
+    def set_hamiltonian_normalised_first_derivative_f(self):
+        '''
+        Set first derivative of real part of Hamiltonian with respect to
+        frequency multiplied by frequency i.e. f * dH/df.
+        '''
+    
+    def set_hamiltonian_first_derivative_z(self):
+        '''
+        Set first derivative of real part of Hamiltonian with respect to
+        phase space position (x, N).
+        '''
+        dH_dx = self.hamiltonian_first_derivative_x.get()
+        dH_dN = self.hamiltonian_first_derivative_N.get()
+        
+        dH_dz = np.empty(self.hamiltonian_first_derivative_z.shape)
+        n = dH_dz.shape[0] // 2
+        dH_dz[:n] = dH_dx
+        dH_dz[n:] = dH_dN
 
-    @abc.abstractmethod    
+        self.hamiltonian_first_derivative_z.set(dH_dz)
+
+    @abc.abstractmethod
+    def set_hamiltonian_second_derivative_x(self):
+        '''
+        Set second derivative of real part of Hamiltonian with respect to
+        position.
+        '''
+    
+    @abc.abstractmethod
+    def set_hamiltonian_second_derivative_N(self):
+        '''
+        Set second derivative of real part of Hamiltonian with respect to
+        refractive index.
+        '''
+    
+    @abc.abstractmethod
+    def set_hamiltonian_second_derivative_xN(self):
+        '''
+        Set second mixed derivative of real part of Hamiltonian with respect
+        to position and refractive index i.e. d2H_dx_dN[i, j] = d^2H / dx^i dN_j
+        '''
+
+    @abc.abstractmethod
+    def set_hamiltonian_normalised_second_derivative_xf(self):
+        '''
+        Set normalised second mixed derivative of real part of Hamiltonian
+        with respect to frequency and position i.e. f * (d^2 H / dx df).
+        '''
+    
+    @abc.abstractmethod
+    def set_hamiltonian_normalised_second_derivative_Nf(self):
+        '''
+        Set normalised second mixed derivative of real part of Hamiltonian
+        with respect to frequency and refractive index i.e. f * (d^2 H / dN df).
+        '''
+
+    def set_hamiltonian_second_derivative_z(self):
+        '''
+        Set second derivative of real part of Hamiltonian with respect to
+        phase space position z = (x, N) i.e. d2H_dz2[i, j] = d^2 H / dz^i dz^j.
+        '''
+        d2H_dx2 = self.hamiltonian_second_derivative_x.get()
+        d2H_dx_dN = self.hamiltonian_second_derivative_xN.get()
+        d2H_dN2 = self.hamiltonian_second_derivative_N.get()
+        
+        d2H_dz2 = np.empty(self.hamiltonian_second_derivative_z.shape)
+        n = d2H_dz2.shape[0] // 2
+        d2H_dz2[:n, :n] = d2H_dx2
+        d2H_dz2[:n, n:] = d2H_dx_dN
+        d2H_dz2[n:, :n] = d2H_dx_dN.T
+        d2H_dz2[n:, n:] = d2H_dN2
+
+        self.hamiltonian_second_derivative_z.set(d2H_dz2)
+
+    @abc.abstractmethod
     def set_normalised_ray_velocity(self):
         '''
         Set velocity of ray on phase space (x, N) normalised to the speed
@@ -104,16 +283,6 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
     _hamiltonian_first_derivative_N2 = Parameter.scalar(
         "hamiltonian_first_derivative_N2", ("First derivative of real part "
         "of hamiltonian with respect to squared refractive index."), "", root)
-
-    _hamiltonian_first_derivative_x = Parameter.covector(
-        "hamiltonian_first_derivative_x", ("First derivative of real "
-        "part of hamiltonian with respect to space."), "m^-1", root)
-    _hamiltonian_first_derivative_N = Parameter.covector(
-        "hamiltonian_first_derivative_N", ("First derivative of real "
-        "part of hamiltonian with respect to refractive index."), "m", root)
-    _hamiltonian_normalised_first_derivative_f = Parameter.scalar(
-        "hamiltonian_first_derivative_f", ("First derivative of real "
-        "part of hamiltonian with respect to frequency."), "ns", root)
     
     _hamiltonian_second_derivative_X = Parameter.scalar(
         "hamiltonian_second_derivative_X", ("Second derivative of real part "
@@ -126,26 +295,6 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
         "real part of hamiltonian with respect to normalised density and "
         "squared refractive index."), "", root)
     
-    _hamiltonian_second_derivative_x = Parameter.rank_02_tensor(
-        "hamiltonian_second_derivative_x", ("Second derivative of real "
-        "part of hamiltonian with respect to space."), "m^-2", root)
-    _hamiltonian_second_derivative_N = Parameter.rank_20_tensor(
-        "hamiltonian_second_derivative_N", ("Second derivative of real "
-        "part of hamiltonian with respect to refractive index."), "m^2", root)
-    _hamiltonian_second_derivative_xN = Parameter.rank_11_tensor(
-        "hamiltonian_second_derivative_xN", ("Second mixed derivative of real "
-        "part of hamiltonian with respect to position and refractive index."),
-        "", root)
-
-    _hamiltonian_normalised_second_derivative_xf = Parameter.covector(
-        "hamiltonian_normalised_second_derivative_xf", ("Second mixed "
-        "derivative of hamiltonian with respect to position and frequency."),
-        "ns.m^-1", root)
-    _hamiltonian_normalised_second_derivative_Nf = Parameter.vector(
-        "hamiltonian_normalised_second_derivative_Nf", ("Second mixed "
-        "derivative of hamiltonian with respect to refractive index and "
-        "frequency."), "ns.m", root)
-
     def __init__(self, density_model: DensityModel, wave_model: WaveModel,
         dimension: int, options: UnmagnetisedPlasmaHamiltonianOptions):
         '''
@@ -175,19 +324,6 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
         self.hamiltonian_first_derivative_N2 = ParameterCache.with_callback(
             self._hamiltonian_first_derivative_N2, dimension,
             self.set_hamiltonian_first_derivative_N2, bound_method=True)
-        
-        self.hamiltonian_first_derivative_x = ParameterCache.with_callback(
-            self._hamiltonian_first_derivative_x, dimension,
-            self.set_hamiltonian_first_derivative_x, bound_method=True)
-        
-        self.hamiltonian_first_derivative_N = ParameterCache.with_callback(
-            self._hamiltonian_first_derivative_N, dimension,
-            self.set_hamiltonian_first_derivative_N, bound_method=True)
-
-        self.hamiltonian_normalised_first_derivative_f = ParameterCache.with_callback(
-            self._hamiltonian_normalised_first_derivative_f, dimension,
-            self.set_hamiltonian_normalised_first_derivative_f,
-            bound_method=True)
 
         self.hamiltonian_second_derivative_X = ParameterCache.with_callback(
             self._hamiltonian_second_derivative_X, dimension,
@@ -200,28 +336,6 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
         self.hamiltonian_second_derivative_X_N2 = ParameterCache.with_callback(
             self._hamiltonian_second_derivative_X_N2, dimension,
             self.set_hamiltonian_second_derivative_X_N2, bound_method=True)
-
-        self.hamiltonian_normalised_second_derivative_xf = ParameterCache.with_callback(
-            self._hamiltonian_normalised_second_derivative_xf, dimension,
-            self.set_hamiltonian_normalised_second_derivative_xf,
-            bound_method=True)
-        
-        self.hamiltonian_normalised_second_derivative_Nf = ParameterCache.with_callback(
-            self._hamiltonian_normalised_second_derivative_Nf, dimension,
-            self.set_hamiltonian_normalised_second_derivative_Nf,
-            bound_method=True)
-
-        self.hamiltonian_second_derivative_x = ParameterCache.with_callback(
-            self._hamiltonian_second_derivative_x, dimension,
-            self.set_hamiltonian_second_derivative_x, bound_method=True)
-
-        self.hamiltonian_second_derivative_N = ParameterCache.with_callback(
-            self._hamiltonian_second_derivative_N, dimension,
-            self.set_hamiltonian_second_derivative_N, bound_method=True)
-
-        self.hamiltonian_second_derivative_xN = ParameterCache.with_callback(
-            self._hamiltonian_second_derivative_xN, dimension,
-            self.set_hamiltonian_second_derivative_xN, bound_method=True)
 
     def set_refractive_index_squared(self):
         '''
@@ -239,7 +353,7 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
 
     def set_hamiltonian(self):
         '''
-        Return complex valued ray tracing Hamiltonian.
+        Set complex valued ray tracing Hamiltonian.
         '''
         X = self.density_model.normalised_density.get()
         N2 = self.refractive_index_squared.get()
@@ -265,7 +379,7 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
 
     def set_hamiltonian_first_derivative_X(self):
         '''
-        Return first derivative of real part of Hamiltonian with respect to
+        Set first derivative of real part of Hamiltonian with respect to
         normalised density X.
         '''
         X = self.density_model.normalised_density.get()
@@ -280,7 +394,7 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
 
     def set_hamiltonian_first_derivative_N2(self):
         '''
-        Return first derivative of real part of Hamiltonian with respect to
+        Set first derivative of real part of Hamiltonian with respect to
         squared refractive index.
         '''
         X = self.density_model.normalised_density.get()
@@ -292,10 +406,42 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
             dH_dN2 = -2 * (1 - X) * (1 - X - N2)
         
         self.hamiltonian_first_derivative_N2.set(dH_dN2)
+
+    def set_hamiltonian_first_derivative_x(self):
+        '''
+        Set first derivative of real part of Hamiltonian with respect to
+        space.
+        '''
+        dH_dX = self.hamiltonian_first_derivative_X.get()
+        dX_dx = self.density_model.normalised_density_first_derivative.get()
+
+        if self.options.reduced_dispersion:
+            dH_dx = dH_dX * dX_dx
+        else:
+            raise NotImplementedError()
+
+        self.hamiltonian_first_derivative_x.set(dH_dx)
+
+    def set_hamiltonian_first_derivative_N(self):
+        '''
+        Set first derivative of real part of Hamiltonian with respect to
+        refractive index.
+        '''
+        N = self.wave_model.refractive_index.get()
+        dD_dN2 = self.hamiltonian_first_derivative_N2.get()
+
+        logger.info((N, dD_dN2))
+
+        if self.options.reduced_dispersion:
+            dH_dN = 2 * N * dD_dN2
+        else:
+            raise NotImplementedError()
+        
+        self.hamiltonian_first_derivative_N.set(dH_dN)
     
     def set_hamiltonian_normalised_first_derivative_f(self):
         '''
-        Return first derivative of real part of Hamiltonian with respect to
+        Set first derivative of real part of Hamiltonian with respect to
         frequency multiplied by frequency i.e. f * dH/df.
         '''
         X = self.density_model.normalised_density.get()
@@ -312,41 +458,9 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
         
         self.hamiltonian_normalised_first_derivative_f.set(f_dH_df)
 
-    def set_hamiltonian_first_derivative_x(self):
-        '''
-        Return first derivative of real part of Hamiltonian with respect to
-        space.
-        '''
-        dH_dX = self.hamiltonian_first_derivative_X.get()
-        dX_dx = self.density_model.normalised_density_first_derivative.get()
-
-        if self.options.reduced_dispersion:
-            dH_dx = dH_dX * dX_dx
-        else:
-            raise NotImplementedError()
-
-        self.hamiltonian_first_derivative_x.set(dH_dx)
-
-    def set_hamiltonian_first_derivative_N(self):
-        '''
-        Return first derivative of real part of Hamiltonian with respect to
-        refractive index.
-        '''
-        N = self.wave_model.refractive_index.get()
-        dD_dN2 = self.hamiltonian_first_derivative_N2.get()
-
-        logger.info((N, dD_dN2))
-
-        if self.options.reduced_dispersion:
-            dH_dN = 2 * N * dD_dN2
-        else:
-            raise NotImplementedError()
-        
-        self.hamiltonian_first_derivative_N.set(dH_dN)
-
     def set_hamiltonian_second_derivative_X(self):
         '''
-        Return second derivative of real part of Hamiltonian with respect to
+        Set second derivative of real part of Hamiltonian with respect to
         normalised density X.
         '''
         if self.options.reduced_dispersion:
@@ -358,7 +472,7 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
 
     def set_hamiltonian_second_derivative_N2(self):
         '''
-        Return second derivative of real part of Hamiltonian with respect to
+        Set second derivative of real part of Hamiltonian with respect to
         squared refractive index.
         '''
         if self.options.reduced_dispersion:
@@ -370,7 +484,7 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
 
     def set_hamiltonian_second_derivative_X_N2(self):
         '''
-        Return second mixed derivative of real part of Hamiltonian with respect
+        Set second mixed derivative of real part of Hamiltonian with respect
         to normalised density X and squared refractive index.
         '''
         if self.options.reduced_dispersion:
@@ -382,7 +496,7 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
 
     def set_hamiltonian_second_derivative_x(self):
         '''
-        Return second derivative of real part of Hamiltonian with respect to
+        Set second derivative of real part of Hamiltonian with respect to
         position.
         '''
         if self.options.reduced_dispersion:
@@ -395,7 +509,7 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
 
     def set_hamiltonian_second_derivative_N(self):
         '''
-        Return second derivative of real part of Hamiltonian with respect to
+        Set second derivative of real part of Hamiltonian with respect to
         refractive index.
         '''
         if self.options.reduced_dispersion:
@@ -407,7 +521,7 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
 
     def set_hamiltonian_second_derivative_xN(self):
         '''
-        Return second mixed derivative of real part of Hamiltonian with respect
+        Set second mixed derivative of real part of Hamiltonian with respect
         to position and refractive index.
         '''
         if self.options.reduced_dispersion:
@@ -419,7 +533,7 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
 
     def set_hamiltonian_normalised_second_derivative_xf(self):
         '''
-        Return normalised second mixed derivative of real part of Hamiltonian
+        Set normalised second mixed derivative of real part of Hamiltonian
         with respect to frequency and position i.e. f * (d^2 H / dx df).
         '''
         if self.options.reduced_dispersion:
@@ -432,7 +546,7 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
 
     def set_hamiltonian_normalised_second_derivative_Nf(self):
         '''
-        Return normalised second mixed derivative of real part of Hamiltonian
+        Set normalised second mixed derivative of real part of Hamiltonian
         with respect to frequency and refractive index i.e. f * (d^2 H / dN df).
         '''
         if self.options.reduced_dispersion:
@@ -445,7 +559,7 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
 
     def set_normalised_ray_velocity(self):
         '''
-        Return velocity of ray in phase space (x, N) normalised to the speed
+        Set velocity of ray in phase space (x, N) normalised to the speed
         of light.
         '''
         if self.options.reduced_dispersion:
@@ -467,7 +581,7 @@ class UnmagnetisedPlasmaHamiltonian(HamiltonianBase):
 
     def set_normalised_ray_acceleration(self):
         '''
-        Return acceleration of ray in phase space (x, N) normalised to the
+        Set acceleration of ray in phase space (x, N) normalised to the
         speed of light squared.
         '''
         if self.options.reduced_dispersion:
@@ -505,16 +619,14 @@ class HamiltonianModel:
         "hamiltonian_model_caches")
 
     def __init__(self, density_model: DensityModel, wave_model: WaveModel,
-        dimension: int, options: HamiltonianModelOptions=None):
+        dimension: int, options: HamiltonianModelOptions):
         '''
 
         '''
         self.density_model = density_model
         self.wave_model = wave_model
         self.dimension = dimension
-
-        if options is None:
-            self.options = HamiltonianModelOptions()
+        self.options = options
 
         self.hamiltonian_type = HamiltonianType.COLD_UNMAGNETISED
         self.hamiltonian_model_caches: Dict[HamiltonianType, HamiltonianBase] = {}
@@ -567,4 +679,3 @@ class HamiltonianModel:
         of light squared.
         '''
         return self[self.hamiltonian_type].normalised_ray_acceleration
-    
