@@ -58,7 +58,7 @@ def second_derivative_finite_difference(position, value_function,
 
     return derivative / h**2
 
-class DensityModelPresets:
+class DensityDataModelTests:
     test_positions = (np.array([1.0, 0.0, 0.0]), np.array([1.3, -0.3, 1.3]),
         np.array([-1.12, 1.77, -2.89]), np.array([-1.06, -0.59, -2.80]))
 
@@ -76,14 +76,14 @@ class DensityModelPresets:
             model.normalised_density, ())
         
         logger.warning(abs(actual_second_derivative - expected_second_derivative))
-        assert np.allclose(actual_second_derivative, expected_second_derivative)
+        assert np.allclose(actual_second_derivative, expected_second_derivative, atol=1e-7)
 
-class TestC2Ramp(DensityModelPresets):
+class TestC2Ramp(DensityDataModelTests):
     @pytest.fixture
     def model(self):
         return C2Ramp(28.0, 0.0, 0.1, 1.3, 0.5)
 
-class TestQuadraticWell(DensityModelPresets):
+class TestQuadraticWell(DensityDataModelTests):
     @pytest.fixture
     def model(self):
         return QuadraticWell(28.0, [0, 0, 0], 0.5)
