@@ -11,7 +11,8 @@ from typing import List, Tuple
 from unmagnetised_plasma_ray_tracing.density_model import (QuadraticWell,
     DensityModel)
 from unmagnetised_plasma_ray_tracing.hamiltonian_model import (
-    UnmagnetisedPlasmaHamiltonian, UnmagnetisedPlasmaHamiltonianOptions)
+    UnmagnetisedPlasmaHamiltonian, UnmagnetisedPlasmaHamiltonianOptions,
+    HamiltonianType, HamiltonianModel, HamiltonianModelOptions)
 from unmagnetised_plasma_ray_tracing.parameter import ParameterCache
 from unmagnetised_plasma_ray_tracing.wave_model import WaveModel
 
@@ -119,26 +120,26 @@ class TestUnmagnetisedPlasmaHamiltonian:
     frequency_ghz = 28.0
 
     @pytest.fixture
-    def density_model(self):
-        density_data_model = QuadraticWell(self.frequency_ghz, np.zeros(3), 1)
-        density_model = DensityModel(density_data_model, self.dimension)
-        
-        return density_model
-
-    @pytest.fixture
     def wave_model(self):
         wave_model = WaveModel(self.dimension)
         wave_model.frequency.set(self.frequency_ghz)
         wave_model.time.set(0.0)
 
         return wave_model
+    
+    @pytest.fixture
+    def density_model(self, wave_model):
+        density_data_model = QuadraticWell(self.frequency_ghz, np.zeros(3), 1)
+        density_model = DensityModel(density_data_model, wave_model,
+            self.dimension)
+        
+        return density_model
 
     @pytest.fixture
     def model(self, density_model, wave_model):
-        density_model.link(wave_model.position, wave_model.frequency)
         options = UnmagnetisedPlasmaHamiltonianOptions()
-        hamiltonian_model = UnmagnetisedPlasmaHamiltonian(density_model, wave_model,
-            self.dimension, options)
+        hamiltonian_model = UnmagnetisedPlasmaHamiltonian(density_model,
+            wave_model, self.dimension, options)
         
         return hamiltonian_model
 
@@ -431,3 +432,34 @@ class TestUnmagnetisedPlasmaHamiltonian:
         actual_value /= dt * const.speed_of_light
         logger.warning(abs(actual_value - expected_value))
         assert np.allclose(actual_value, expected_value, atol=5e-5)
+
+class TestHamiltonianModel:
+    dimension = 3
+    frequency_ghz = 28.0
+
+    @pytest.fixture
+    def wave_model(self):
+        wave_model = WaveModel(self.dimension)
+        wave_model.frequency.set(self.frequency_ghz)
+        wave_model.time.set(0.0)
+
+        return wave_model
+
+    @pytest.fixture
+    def density_model(self, wave_model):
+        density_data_model = QuadraticWell(self.frequency_ghz, np.zeros(3), 1)
+        density_model = DensityModel(density_data_model, wave_model,
+            self.dimension)
+        
+        return density_model
+
+    @pytest.fixture
+    def model(self, density_model, wave_model):
+        options = HamiltonianModelOptions()
+        return HamiltonianModel(density_model, wave_model, self.dimension,
+            options)
+    
+    def test_model_types(self, model):
+        assert isinstance(model[HamiltonianType.COLD_UNMAGNETISED],
+            UnmagnetisedPlasmaHamiltonian)
+        
