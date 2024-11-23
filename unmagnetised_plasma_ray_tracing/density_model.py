@@ -9,6 +9,7 @@ import numpy.typing as npt
 # Local imports
 from .model import ModelBase
 from .parameter import Parameter, ParameterCache
+from .wave_model import WaveModel
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ class DensityDataModel(abc.ABC):
         '''
 
 class DensityModel(ModelBase):
-    __slots__ = ("__weakref__", "model", "position", "frequency", "density",
+    __slots__ = ("__weakref__", "model", "wave_model", "density",
         "density_first_derivative", "density_second_derivative",
         "critical_density", "normalised_density",
         "normalised_density_first_derivative",
@@ -65,11 +66,13 @@ class DensityModel(ModelBase):
         "normalised_density_second_derivative",
         "Second derivative of normalised density", "m^-2", root)
 
-    def __init__(self, model: DensityDataModel, dimension: int):
+    def __init__(self, model: DensityDataModel, wave_model: WaveModel,
+        dimension: int):
         '''
         
         '''
         self.model = model
+        self.wave_model = wave_model
 
         self.density = ParameterCache.with_callback(self._density, dimension,
             self.set_density, bound_method=True)
@@ -98,18 +101,11 @@ class DensityModel(ModelBase):
             self._normalised_density_second_derivative, dimension,
             self.set_normalised_density_second_derivative, bound_method=True)
 
-    def link(self, position: ParameterCache, frequency: ParameterCache):
-        '''
-        Link density model to external parameters.
-        '''
-        self.position = position
-        self.frequency = frequency
-
     def set_density(self):
         '''
         
         '''
-        position = self.position.get()
+        position = self.wave_model.position.get()
         density = self.model.density(position)
         self.density.set(density)
     
@@ -117,7 +113,7 @@ class DensityModel(ModelBase):
         '''
         
         '''
-        position = self.position.get()
+        position = self.wave_model.position.get()
         density_first_derivative = self.model.density_first_derivative(position)
         self.density_first_derivative.set(density_first_derivative)
     
@@ -125,7 +121,7 @@ class DensityModel(ModelBase):
         '''
         
         '''
-        position = self.position.get()
+        position = self.wave_model.position.get()
         density_second_derivative = self.model.density_second_derivative(position)
         self.density_second_derivative.set(density_second_derivative)
 
@@ -133,7 +129,7 @@ class DensityModel(ModelBase):
         '''
         
         '''
-        frequency_ghz = self.frequency.get()
+        frequency_ghz = self.wave_model.frequency.get()
         critical_density_per_m3 = 1e18 * (frequency_ghz / 9)**2
         self.critical_density.set(critical_density_per_m3)
     
@@ -204,6 +200,22 @@ class NormalisedDensityDataModel(DensityDataModel):
 
     def density_second_derivative(self, position_cartesian):
         return self.critical_density * self.normalised_density_second_derivative(position_cartesian)
+
+class Vacuum(DensityDataModel):
+    '''
+    Vacuum, density is zero everywhere.
+    '''
+    def __init__(self) -> None:
+        super().__init__()
+    
+    def density(self, position_cartesian):
+        return 0.0
+    
+    def density_first_derivative(self, position_cartesian):
+        return np.zeros(self.density_first_derivative.shape)
+    
+    def density_second_derivative(self, position_cartesian):
+        return np.zeros(self.density_second_derivative.shape)
 
 class C2Ramp(NormalisedDensityDataModel):
     '''
